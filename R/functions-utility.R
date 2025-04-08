@@ -12,7 +12,7 @@ Surv <- function(time, event) {
     stop("Must have a time argument")
   if (!is.numeric(time))
     stop("Time variable is not numeric")
-  if (!is.na(any(time)))
+  if (any(is.na(time)))
     warning("Invalid time variable. NA values included")
   #  if (any(time<0))
   #    warning("Invalid time variable. Non-negative values included")
@@ -21,11 +21,11 @@ Surv <- function(time, event) {
   if (missing(event))
     stop("Must have an event argument")
   if (is.numeric(event)) {
-    if (!is.na(any(event)))
+    if (any(is.na(event)))
       warning("Invalid event variable. NA values included")
     status <- event
   } else if (is.logical(event)) {
-    if (!is.na(any(event)))
+    if (any(is.na(event)))
       warning("Invalid event variable. NA values included")
     status <- as.numeric(event)
     warning("Event variable is logical, converted to numearic")
@@ -58,7 +58,7 @@ Event <- function(time, event) {
     stop("A time argument is required")
   if (!is.numeric(time))
     stop("Time variable is not numeric")
-  if (!is.na(any(time)))
+  if (any(is.na(time)))
     warning("Invalid time variable. NA values included")
   #  if (any(time<0))
   #    warning("Invalid time variable. Non-negative values included")
@@ -67,11 +67,11 @@ Event <- function(time, event) {
   if (missing(event))
     stop("An event argument is required")
   if (is.numeric(event)) {
-    if (!is.na(any(event)))
+    if (any(is.na(event)))
       warning("Invalid event variable. NA values included")
     status <- event
   } else if (is.is.logical(event)) {
-    if (!is.na(any(event)))
+    if (any(is.na(event)))
       warning("Invalid event variable. NA values included")
     status <- as.numeric(event)
     warning("Event variable is logical, converted to numearic")
@@ -99,7 +99,7 @@ Event <- function(time, event) {
   ss
 }
 
-readSurv <- function(formula, data, weights, code.event1, code.event2, code.censoring, subset.condition, na.action) {
+readSurv <- function(formula, data, weights, code.event, code.censoring, subset.condition, na.action) {
   data <- createAnalysisDataset(formula, data, weights, subset.condition, na.action)
   cl <- match.call()
   if (missing(formula))
@@ -124,7 +124,7 @@ readSurv <- function(formula, data, weights, code.event1, code.event2, code.cens
     if (any(t<0)) {
       stop("Invalid time variable. Expected non-negative values. ")
     }
-    if (!all(Y[, 2] %in% c(code.event1, code.event2, code.censoring))) {
+    if (!all(Y[, 2] %in% c(code.event, code.censoring))) {
       stop("Invalid event codes. Must be 0 or 1 for survival and 0, 1 or 2 for competing risks, with 0 representing censoring, if event codes are not specified. ")
     } else {
       epsilon <- Y[, 2]
@@ -152,7 +152,7 @@ readSurv <- function(formula, data, weights, code.event1, code.event2, code.cens
     if (any(is.na(w)))
       stop("Weights contain NA values")
   }
-  return(list(t = t, epsilond = epsilon, d = d, d0 = d0, strata = strata, strata_name = strata_name, w=w))
+  return(list(t = t, epsilon = epsilon, d = d, d0 = d0, strata = strata, strata_name = strata_name, w=w))
 }
 
 createAnalysisDataset <- function(formula, data, other.variables.analyzed=NULL, subset.condition=NULL, na.action=na.pass) {
@@ -216,8 +216,43 @@ createTestData <- function(n, w, first_zero=FALSE, last_zero=FALSE, subset_prese
 }
 
 
+get_surv <- function(predicted.time, estimated.surv, estimated.time, predicted.strata=NULL, estimated.strata=NULL) {
+  predicted.surv <- numeric(length(predicted.time))
+  strata_start <- c(1, head(cumsum(estimated.strata), -1) + 1)
+  strata_end <- cumsum(estimated.strata)
+  if (any(is.na(predicted.time)))
+    stop("Invalid predicted time variable. NA values included")
 
+  for (i in seq_along(predicted.time)) {
+    t <- predicted.time[i]
+    strata_size <- estimated.strata[predicted.strata[i]]
 
+    if (is.null(estimated.strata)|all(is.na(estimated.strata))) {
+      #      time_until_t <- estimated.time[estimated.time <= t]
+      time_until_t <- estimated.time[estimated.time < t]
+      if (length(time_until_t) > 0) {
+        time_index <- which.max(time_until_t)
+        predicted.surv[i] <- estimated.surv[time_index]
+      } else {
+        predicted.surv[i] <- 1
+      }
+    } else if (strata_size > 0|all(is.na(estimated.strata))) {
+      strata_indices <- strata_start[predicted.strata[i]]:strata_end[predicted.strata[i]]
+      strata_time <- estimated.time[strata_indices]
+      strata_surv <- estimated.surv[strata_indices]
 
+      #      time_until_t <- strata_time[strata_time <= t]
+      time_until_t <- strata_time[strata_time < t]
 
-
+      if (length(time_until_t) > 0) {
+        time_index <- which.max(time_until_t)
+        predicted.surv[i] <- strata_surv[time_index]
+      } else {
+        predicted.surv[i] <- 1
+      }
+    } else {
+      predicted.surv[i] <- NA
+    }
+  }
+  return(predicted.surv)
+}

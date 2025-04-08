@@ -9,7 +9,7 @@ km.curve(
   data,
   weights = NULL,
   subset = NULL,
-  code.event = 1,
+  code.event = c(1, 2),
   code.censoring = 0,
   na.action = na.pass,
   conf.int = 0.95,
@@ -43,7 +43,7 @@ km.curve(
 
 \item{conf.int}{numeric The level for a two-sided confidence interval on the survival probabilities. Defaults to 0.95.}
 
-\item{error}{character either the string "greenwood" for the Greenwood formula or "tsiatis" for the Tsiatis formula. Defaults to "greenwood".}
+\item{error}{character Specifies standard error calculation. "greenwood" for the Greenwood formula, "tsiatis" for the Tsiatis formula or "jackknife" for the jack knife method. Defaults to "greenwood".}
 
 \item{conf.type}{character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".}
 
