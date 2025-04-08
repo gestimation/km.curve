@@ -215,7 +215,6 @@ createTestData <- function(n, w, first_zero=FALSE, last_zero=FALSE, subset_prese
   return(data.frame(id = 1:n, t = t, epsilon = epsilon, d = d, w = w, strata = strata, subset=subset))
 }
 
-
 get_surv <- function(predicted.time, estimated.surv, estimated.time, predicted.strata=NULL, estimated.strata=NULL) {
   predicted.surv <- numeric(length(predicted.time))
   strata_start <- c(1, head(cumsum(estimated.strata), -1) + 1)
