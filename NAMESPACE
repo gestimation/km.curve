@@ -3,7 +3,6 @@
 export(Event)
 export(Surv)
 export(calculateKM_rcpp)
-export(cppFunction)
 export(createTestData)
 export(km.curve)
 importFrom(Rcpp,cppFunction)

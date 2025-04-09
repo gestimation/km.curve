@@ -10,9 +10,9 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// calculateKM_rcpp_not_used
-Rcpp::List calculateKM_rcpp_not_used(Rcpp::NumericVector t, Rcpp::IntegerVector d, Rcpp::NumericVector w, Rcpp::IntegerVector strata, std::string error);
-RcppExport SEXP _km_curve_calculateKM_rcpp_not_used(SEXP tSEXP, SEXP dSEXP, SEXP wSEXP, SEXP strataSEXP, SEXP errorSEXP) {
+// calculateKM_rcpp
+Rcpp::List calculateKM_rcpp(Rcpp::NumericVector t, Rcpp::IntegerVector d, Rcpp::NumericVector w, Rcpp::IntegerVector strata, std::string error);
+RcppExport SEXP _km_curve_calculateKM_rcpp(SEXP tSEXP, SEXP dSEXP, SEXP wSEXP, SEXP strataSEXP, SEXP errorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -21,13 +21,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type w(wSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type strata(strataSEXP);
     Rcpp::traits::input_parameter< std::string >::type error(errorSEXP);
-    rcpp_result_gen = Rcpp::wrap(calculateKM_rcpp_not_used(t, d, w, strata, error));
+    rcpp_result_gen = Rcpp::wrap(calculateKM_rcpp(t, d, w, strata, error));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_km_curve_calculateKM_rcpp_not_used", (DL_FUNC) &_km_curve_calculateKM_rcpp_not_used, 5},
+    {"_km_curve_calculateKM_rcpp", (DL_FUNC) &_km_curve_calculateKM_rcpp, 5},
     {NULL, NULL, 0}
 };
 
