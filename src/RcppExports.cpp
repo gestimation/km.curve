@@ -12,7 +12,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // calculateKM_rcpp
 Rcpp::List calculateKM_rcpp(Rcpp::NumericVector t, Rcpp::IntegerVector d, Rcpp::NumericVector w, Rcpp::IntegerVector strata, std::string error);
-RcppExport SEXP _km_curve_calculateKM_rcpp(SEXP tSEXP, SEXP dSEXP, SEXP wSEXP, SEXP strataSEXP, SEXP errorSEXP) {
+RcppExport SEXP _calculateKM_rcpp(SEXP tSEXP, SEXP dSEXP, SEXP wSEXP, SEXP strataSEXP, SEXP errorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -27,7 +27,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_km_curve_calculateKM_rcpp", (DL_FUNC) &_km_curve_calculateKM_rcpp, 5},
+    {"_calculateKM_rcpp", (DL_FUNC) &_calculateKM_rcpp, 5},
     {NULL, NULL, 0}
 };
 
