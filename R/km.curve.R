@@ -27,7 +27,7 @@
 #' @export Surv
 #' @export Event
 #' @export cppFunction
-#' @export km_curve_calculateKM_rcpp
+#' @export calculateKM_rcpp
 #'
 #' @examples
 #' library(ggsurvfit)

@@ -2,8 +2,8 @@
 
 export(Event)
 export(Surv)
+export(calculateKM_rcpp)
 export(cppFunction)
 export(km.curve)
-export(km_curve_calculateKM_rcpp)
 importFrom(Rcpp,cppFunction)
 importFrom(ggsurvfit,ggsurvfit)
