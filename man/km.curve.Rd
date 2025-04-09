@@ -74,7 +74,6 @@ An object consists of Kaplan-Meier estimator and related statistics. This object
 \examples{
 library(ggsurvfit)
 library(Rcpp)
-data(diabetes.complications)
-diabetes.complications$d <- as.numeric(diabetes.complications$epsilon>0)
-km.curve(Surv(t, d)~fruitq1, data=diabetes.complications)
+testdata <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=TRUE, na_strata=FALSE)
+km.curve(Surv(t, d)~strata, data=testdata)
 }

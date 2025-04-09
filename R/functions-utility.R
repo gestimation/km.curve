@@ -5,6 +5,7 @@ checkDependentPackages <- function() {
   } else {
     stop("Required packages 'ggsurvfit' and/or 'Rcpp' are not installed.")
   }
+  sourceCpp('src/km.curve.cpp')
 }
 
 Surv <- function(time, event) {
