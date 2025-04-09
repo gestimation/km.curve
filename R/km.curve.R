@@ -26,6 +26,7 @@
 #' @export km.curve
 #' @export Surv
 #' @export Event
+#' @export createTestData
 #' @export cppFunction
 #' @export calculateKM_rcpp
 #'
