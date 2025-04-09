@@ -134,7 +134,7 @@ km.curve <- function(formula,
 
 
 cppFunction('
-Rcpp::List calculateKM_rcpp_not_used(Rcpp::NumericVector t, Rcpp::IntegerVector d,
+Rcpp::List calculateKM_rcpp(Rcpp::NumericVector t, Rcpp::IntegerVector d,
                                     Rcpp::NumericVector w = Rcpp::NumericVector::create(),
                                     Rcpp::IntegerVector strata = Rcpp::IntegerVector::create(),
                                     std::string error = "greenwood") {
