@@ -1,4 +1,4 @@
-#' #' Title Cumularive incidence curve
+#' #' Title Estimate and plot cumulative incidence curves
 #'
 #' @param formula formula Model formula representing outcome and strata
 #' @param data data.frame Input dataset containing survival data.
@@ -23,7 +23,7 @@
 #' @importFrom ggsurvfit ggsurvfit
 #' @importFrom Rcpp sourceCpp
 #' @useDynLib km.curve, .registration = TRUE
-#' @returns An object consists of Aalen-Johansen estimator and related statistics. This object is formatted to conform to the suvrfit class, so note that surv contains estimates corresponds to 1-cumulative incidence.
+#' @returns An object consists of Aalen-Johansen estimator and related statistics. This object is formatted to conform to the survfit class, so note that surv contains estimates corresponds to 1-cumulative incidence. Some methods for the class (e.g. residuals.survfit) are not supported.
 #' @export km.curve
 #' @export ci.curve
 #' @export Surv
@@ -45,10 +45,10 @@
 #' prostate <- prostate %>% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
 #' prostate$t <- prostate$dtime/12
 #' attr(prostate$a, "label") <- "Treatment"
-#' survfit_by_group <- ci.curve(Surv(t, epsilon)~a, data=prostate, code.event = c(1,2), label.y = "Cumulative incidence of cancer-specific death", label.x = "Years from randomization", conf.type = "n")
-#' ci.curve(Surv(t, epsilon)~a, data=prostate, code.event = c(2,1), label.y = "Cumulative incidence of non-cancer-specific death", label.x = "Years from randomization", conf.type = "n")
+#' survfit_by_group <- ci.curve(Event(t, epsilon)~a, data=prostate, code.event = c(1,2), label.y = "Cumulative incidence of cancer-specific death", label.x = "Years from randomization")
+#' ci.curve(Event(t, epsilon)~a, data=prostate, code.event = c(2,1), label.y = "Cumulative incidence of non-cancer-specific death", label.x = "Years from randomization", conf.type = "n")
 #'
-#' survfit_overall <- ci.curve(Surv(t, epsilon)~1, data=prostate, code.event = c(1,2), report.ggsurvfit=FALSE)
+#' survfit_overall <- ci.curve(Event(t, epsilon)~1, data=prostate, code.event = c(1,2), report.ggsurvfit=FALSE)
 #' survfit_list <- list(survfit_overall, survfit_by_group)
 #' table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**", type="risk") |>
 #'   modify_spanning_header(all_stat_cols() ~ "**Cumulative incidence of cancer-specific death**")
@@ -133,6 +133,8 @@ ci.curve <- function(formula,
         theme(legend.position = "top")+
         add_risktable(risktable_stats = c("n.risk"))
     } else {
+      if (length(survfit_object$time) != length(survfit_object$lower)) stop("time and upper/lower required for ggsurvfit are different lengths")
+      if (length(survfit_object$time) != length(survfit_object$n.risk)) stop("time and n.risk used required ggsurvfit are different lengths")
       out_ggsurvfit <- ggsurvfit(survfit_object, type = "risk") +
         theme_classic()+
         theme(legend.position = legend.position,

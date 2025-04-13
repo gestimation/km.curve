@@ -2,7 +2,7 @@
 % Please edit documentation in R/km.curve.R
 \name{km.curve}
 \alias{km.curve}
-\title{#' Title Kaplan-Meier curve}
+\title{#' Title Estimate and plot Kaplan-Meier curves}
 \usage{
 km.curve(
   formula,
@@ -15,7 +15,8 @@ km.curve(
   conf.int = 0.95,
   error = "greenwood",
   conf.type = "arcsine-square root",
-  use.ggsurvfit = TRUE,
+  report.survfit.std.err = FALSE,
+  report.ggsurvfit = TRUE,
   label.x = "Time",
   label.y = "Survival probability",
   label.strata = NULL,
@@ -47,7 +48,9 @@ km.curve(
 
 \item{conf.type}{character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".}
 
-\item{use.ggsurvfit}{logical Draw a survival plot using ggsurvfit. Defaults to TRUE.}
+\item{report.survfit.std.err}{logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfitThis is  according to the original survfit. Defaults to FALSE.}
+
+\item{report.ggsurvfit}{logical Draw a survival plot using ggsurvfit. Defaults to TRUE.}
 
 \item{label.x}{character Labels of x axis. Defaults to "Survival probability".}
 
@@ -66,14 +69,30 @@ km.curve(
 \item{legend.position}{character Specifies position of the legend of curves. Defaults to "top".}
 }
 \value{
-An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the suvrfit class.
+An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the survfit class. Some methods for the class (e.g. residuals.survfit) are not supported.
 }
 \description{
-#' Title Kaplan-Meier curve
+#' Title Estimate and plot Kaplan-Meier curves
 }
 \examples{
-library(ggsurvfit)
-library(Rcpp)
-testdata <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=TRUE, na_strata=FALSE)
-km.curve(Surv(t, d)~strata, data=testdata)
+library(km.curve)
+library(gtsummary)
+library(dplyr)
+library(labelled)
+data(prostate)
+prostate <- prostate \%>\% mutate(d=ifelse(status=="alive",0,1))
+prostate <- prostate \%>\% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
+prostate$t <- prostate$dtime/12
+attr(prostate$a, "label") <- "Treatment"
+survfit_by_group <- km.curve(Event(t, d)~a, data=prostate, label.x = "Years from randomization")
+quantile(survfit_by_group)
+print(survfit_by_group, rmean=6)
+
+Surv <- km.curve::Surv
+survfit_overall <- km.curve(Surv(t, d)~1, data=prostate, report.ggsurvfit=FALSE)
+
+survfit_list <- list(survfit_overall, survfit_by_group)
+table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**") |>
+  modify_spanning_header(all_stat_cols() ~ "**Overall survival**")
+table_from_survfit
 }

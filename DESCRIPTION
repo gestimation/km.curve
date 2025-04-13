@@ -1,6 +1,6 @@
 Package: km.curve
-Title: Creates Kaplan-Meier curves
-Version: 0.0.1.0000
+Title: Creates Kaplan-Meier and cumulative incidence curves
+Version: 0.0.2.0
 Authors@R: 
     person("Shiro", "Tanaka", , "gestimation@gmail.com", role = c("aut", "cre"))
 Description: What the package does (one paragraph).

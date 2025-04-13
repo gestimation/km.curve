@@ -2,7 +2,7 @@
 % Please edit documentation in R/ci.curve.R
 \name{ci.curve}
 \alias{ci.curve}
-\title{#' Title Cumularive incidence curve}
+\title{#' Title Estimate and plot cumulative incidence curves}
 \usage{
 ci.curve(
   formula,
@@ -13,11 +13,12 @@ ci.curve(
   code.censoring = 0,
   na.action = na.pass,
   conf.int = 0.95,
-  error = "none",
+  error = "delta",
   conf.type = "arcsine-square root",
-  use.ggsurvfit = TRUE,
+  report.survfit.std.err = FALSE,
+  report.ggsurvfit = TRUE,
   label.x = "Time",
-  label.y = "Survival probability",
+  label.y = "Cumulative incidence probability",
   label.strata = NULL,
   lims.x = NULL,
   lims.y = c(0, 1),
@@ -43,13 +44,15 @@ ci.curve(
 
 \item{conf.int}{numeric The level for a two-sided confidence interval on the survival probabilities. Defaults to 0.95.}
 
-\item{error}{character Specifies standard error calculation. "greenwood" for the Greenwood formula, "tsiatis" for the Tsiatis formula or "jackknife" for the jack knife method. Defaults to "greenwood".}
+\item{error}{character Specifies standard error calculation. "aalen" for the Aalen formula, "delta" for the delta method or "jackknife" for the jack knife method. Defaults to "delta".}
 
 \item{conf.type}{character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".}
 
-\item{use.ggsurvfit}{logical Draw a survival plot using ggsurvfit. Defaults to TRUE.}
+\item{report.survfit.std.err}{logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfitThis is  according to the original survfit. Defaults to FALSE.}
 
-\item{label.x}{character Labels of x axis. Defaults to "Survival probability".}
+\item{report.ggsurvfit}{logical Draw a survival plot using ggsurvfit. Defaults to TRUE.}
+
+\item{label.x}{character Labels of x axis. Defaults to "Cumulative incidence probability".}
 
 \item{label.y}{character Labels of y axis. Defaults to "Time".}
 
@@ -66,14 +69,31 @@ ci.curve(
 \item{legend.position}{character Specifies position of the legend of curves. Defaults to "top".}
 }
 \value{
-An object consists of Aalen-Johansen estimator and related statistics. This object is formatted to conform to the suvrfit class, so note that surv contains estimates corresponds to 1-cumulative incidence.
+An object consists of Aalen-Johansen estimator and related statistics. This object is formatted to conform to the survfit class, so note that surv contains estimates corresponds to 1-cumulative incidence. Some methods for the class (e.g. residuals.survfit) are not supported.
 }
 \description{
-#' Title Cumularive incidence curve
+#' Title Estimate and plot cumulative incidence curves
 }
 \examples{
-library(ggsurvfit)
-library(Rcpp)
-testdata <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=TRUE, na_strata=FALSE)
-ci.curve(Surv(t, epsilon)~strata, data=testdata)
+library(km.curve)
+library(gtsummary)
+library(dplyr)
+library(labelled)
+data(prostate)
+prostate <- prostate \%>\% mutate(epsilon=ifelse(status=="alive",0,
+                                       ifelse(status=="dead - prostatic ca",1,
+                                       ifelse(status=="dead - other ca",1,
+                                       ifelse(status=="dead - heart or vascular",2,
+                                       ifelse(status=="dead - cerebrovascular",2,2))))))
+prostate <- prostate \%>\% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
+prostate$t <- prostate$dtime/12
+attr(prostate$a, "label") <- "Treatment"
+survfit_by_group <- ci.curve(Event(t, epsilon)~a, data=prostate, code.event = c(1,2), label.y = "Cumulative incidence of cancer-specific death", label.x = "Years from randomization")
+ci.curve(Event(t, epsilon)~a, data=prostate, code.event = c(2,1), label.y = "Cumulative incidence of non-cancer-specific death", label.x = "Years from randomization", conf.type = "n")
+
+survfit_overall <- ci.curve(Event(t, epsilon)~1, data=prostate, code.event = c(1,2), report.ggsurvfit=FALSE)
+survfit_list <- list(survfit_overall, survfit_by_group)
+table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**", type="risk") |>
+  modify_spanning_header(all_stat_cols() ~ "**Cumulative incidence of cancer-specific death**")
+table_from_survfit
 }

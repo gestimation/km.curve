@@ -1,4 +1,4 @@
-#' #' Title Kaplan-Meier curve
+#' #' Title Estimate and plot Kaplan-Meier curves
 #'
 #' @param formula formula Model formula representing outcome and strata
 #' @param data data.frame Input dataset containing survival data.
@@ -23,7 +23,7 @@
 #' @importFrom ggsurvfit ggsurvfit
 #' @importFrom Rcpp sourceCpp
 #' @useDynLib km.curve, .registration = TRUE
-#' @returns An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the suvrfit class.
+#' @returns An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the survfit class. Some methods for the class (e.g. residuals.survfit) are not supported.
 #' @export km.curve
 #' @export ci.curve
 #' @export Surv
@@ -41,9 +41,13 @@
 #' prostate <- prostate %>% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
 #' prostate$t <- prostate$dtime/12
 #' attr(prostate$a, "label") <- "Treatment"
-#' survfit_by_group <- km.curve(Surv(t, d)~a, data=prostate, label.x = "Years from randomization")
+#' survfit_by_group <- km.curve(Event(t, d)~a, data=prostate, label.x = "Years from randomization")
+#' quantile(survfit_by_group)
+#' print(survfit_by_group, rmean=6)
 #'
+#' Surv <- km.curve::Surv
 #' survfit_overall <- km.curve(Surv(t, d)~1, data=prostate, report.ggsurvfit=FALSE)
+#'
 #' survfit_list <- list(survfit_overall, survfit_by_group)
 #' table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**") |>
 #'   modify_spanning_header(all_stat_cols() ~ "**Overall survival**")
@@ -131,6 +135,8 @@ km.curve <- function(formula,
         add_risktable(risktable_stats = c("n.risk")) +
         add_censor_mark()
     } else {
+      if (length(survfit_object$time) != length(survfit_object$lower)) stop("time and upper/lower required for ggsurvfit are different lengths")
+      if (length(survfit_object$time) != length(survfit_object$n.risk)) stop("time and n.risk used required ggsurvfit are different lengths")
       out_ggsurvfit <- ggsurvfit(survfit_object) +
         theme_classic()+
         theme(legend.position = legend.position,
