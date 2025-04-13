@@ -4,7 +4,7 @@ test_that("km.curve yields the same outputs as survfit", {
   library(Rcpp)
   df_test <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=FALSE, na_strata=FALSE)
   e <- survfit(Surv(t, d)~strata, df_test, weight=w, conf.type = "log-log")
-  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "log-log", use.ggsurvfit = FALSE)
+  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "log-log", report.ggsurvfit = FALSE, report.survfit.std.err = TRUE)
   e$lower <- sapply(e$lower, function(x) ifelse(is.nan(x), NA, x))
   e$upper <- sapply(e$upper, function(x) ifelse(is.nan(x), NA, x))
   e$lower <- sapply(e$lower, function(x) ifelse(x>=1, NA, x))
@@ -28,7 +28,7 @@ test_that("km.curve yields the same outputs as survfit", {
   library(Rcpp)
   df_test <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=FALSE, na_strata=FALSE)
   e <- survfit(Surv(t, d)~strata, df_test, weight=w, conf.type = "log")
-  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "log", use.ggsurvfit = FALSE)
+  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "log", report.ggsurvfit = FALSE, report.survfit.std.err = TRUE)
   e$lower <- sapply(e$lower, function(x) ifelse(is.nan(x), NA, x))
   e$upper <- sapply(e$upper, function(x) ifelse(is.nan(x), NA, x))
   e$lower <- sapply(e$lower, function(x) ifelse(x>=1, NA, x))
@@ -53,7 +53,7 @@ test_that("km.curve yields the same outputs as survfit", {
   library(Rcpp)
   df_test <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=FALSE, na_strata=FALSE)
   e <- survfit(Surv(t, d)~strata, df_test, weight=w, conf.type = "a")
-  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "a", use.ggsurvfit = FALSE)
+  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "a", report.ggsurvfit = FALSE, report.survfit.std.err = TRUE)
   e$lower <- sapply(e$lower, function(x) ifelse(is.nan(x), NA, x))
   e$upper <- sapply(e$upper, function(x) ifelse(is.nan(x), NA, x))
   e$lower <- sapply(e$lower, function(x) ifelse(x>=1, NA, x))
@@ -78,7 +78,7 @@ test_that("km.curve yields the same outputs as survfit", {
   library(Rcpp)
   df_test <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=FALSE, na_strata=FALSE)
   e <- survfit(Surv(t, d)~strata, df_test, weight=w, conf.type = "plain")
-  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "plain", use.ggsurvfit = FALSE)
+  t <- km.curve(Surv(t, d)~strata, df_test, weight="w", conf.type = "plain", report.ggsurvfit = FALSE, report.survfit.std.err = TRUE)
   e$lower <- sapply(e$lower, function(x) ifelse(is.nan(x), NA, x))
   e$upper <- sapply(e$upper, function(x) ifelse(is.nan(x), NA, x))
   e$lower <- sapply(e$lower, function(x) ifelse(x>=1, NA, x))
@@ -96,7 +96,6 @@ test_that("km.curve yields the same outputs as survfit", {
   tested <- as.numeric(c(t$time, round(t$surv,digit=5), t$n, t$n.risk, t$n.event, t$n.censor, round(t$std.err,digit=5), round(t$lower,digit=5), round(t$upper,digit=5), t$strata))
   expect_equal(expected, tested)
 })
-
 
 test_that("empinf in boot package yields expected pseudo observations", {
   library(boot)
@@ -152,4 +151,3 @@ test_that("empinf in boot package yields expected pseudo observations", {
 #  tested <- c(round(out_jk$pseudo.obs[,1], digit=5), round(out_jk$pseudo.obs[,5], digit=5), round(out_jk$pseudo.obs[,9], digit=5))
 #  expect_equal(expected, tested)
 #})
-

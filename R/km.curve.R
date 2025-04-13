@@ -10,7 +10,8 @@
 #' @param conf.int numeric The level for a two-sided confidence interval on the survival probabilities. Defaults to 0.95.
 #' @param error character Specifies standard error calculation. "greenwood" for the Greenwood formula, "tsiatis" for the Tsiatis formula or "jackknife" for the jack knife method. Defaults to "greenwood".
 #' @param conf.type character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".
-#' @param use.ggsurvfit logical Draw a survival plot using ggsurvfit. Defaults to TRUE.
+#' @param report.survfit.std.err logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfitThis is  according to the original survfit. Defaults to FALSE.
+#' @param report.ggsurvfit logical Draw a survival plot using ggsurvfit. Defaults to TRUE.
 #' @param label.strata character Labels of strata. Defaults to NULL.
 #' @param label.x character Labels of x axis. Defaults to "Survival probability".
 #' @param label.y character Labels of y axis. Defaults to "Time".
@@ -31,10 +32,22 @@
 #' @export calculateKM_rcpp
 #'
 #' @examples
-#' library(ggsurvfit)
-#' library(Rcpp)
-#' testdata <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=TRUE, na_strata=FALSE)
-#' km.curve(Surv(t, d)~strata, data=testdata)
+#' library(km.curve)
+#' library(gtsummary)
+#' library(dplyr)
+#' library(labelled)
+#' data(prostate)
+#' prostate <- prostate %>% mutate(d=ifelse(status=="alive",0,1))
+#' prostate <- prostate %>% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
+#' prostate$t <- prostate$dtime/12
+#' attr(prostate$a, "label") <- "Treatment"
+#' survfit_by_group <- km.curve(Surv(t, d)~a, data=prostate, label.x = "Years from randomization")
+#'
+#' survfit_overall <- km.curve(Surv(t, d)~1, data=prostate, report.ggsurvfit=FALSE)
+#' survfit_list <- list(survfit_overall, survfit_by_group)
+#' table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**") |>
+#'   modify_spanning_header(all_stat_cols() ~ "**Overall survival**")
+#' table_from_survfit
 km.curve <- function(formula,
                      data,
                      weights = NULL,
@@ -45,7 +58,8 @@ km.curve <- function(formula,
                      conf.int = 0.95,
                      error = "greenwood",
                      conf.type = "arcsine-square root",
-                     use.ggsurvfit = TRUE,
+                     report.survfit.std.err = FALSE,
+                     report.ggsurvfit = TRUE,
                      label.x = "Time",
                      label.y = "Survival probability",
                      label.strata = NULL,
@@ -64,6 +78,8 @@ km.curve <- function(formula,
       return(out_km)
     }
     out_km$std.err <- calculateJackKnifeSE(out_readSurv, fn)
+  } else {
+    out_km$std.err <- out_km$surv*out_km$std.err
   }
   out_ci <- calculateCI(out_km, conf.int, conf.type, conf.lower)
   if (!all(as.integer(out_readSurv$strata) == 1) & (is.null(label.strata))) {
@@ -71,8 +87,8 @@ km.curve <- function(formula,
   } else if (!all(as.integer(out_readSurv$strata) == 1)) {
     names(out_km$strata) <- label.strata
   }
-  if (is.null(lims.x)) {
-    lims.x <- c(0, max(out_readSurv$t))
+  if (report.survfit.std.err == TRUE) {
+    out_km$std.err <- out_km$std.err/out_km$surv
   }
 
   survfit_object <- list(
@@ -95,7 +111,8 @@ km.curve <- function(formula,
   }
 
   class(survfit_object) <- c("survfit")
-  if (use.ggsurvfit) {
+  if (report.ggsurvfit) {
+    if (is.null(lims.x)) lims.x <- c(0, max(out_readSurv$t))
     if (conf.type == "none" | conf.type == "n" | length(survfit_object$strata)>2) {
       survfit_object_ <- survfit_object
       survfit_object_$lower <- survfit_object_$surv
