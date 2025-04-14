@@ -1,4 +1,4 @@
-#' #' Title Kaplan-Meier curve
+#' #' Title Estimate and plot Kaplan-Meier curves
 #'
 #' @param formula formula Model formula representing outcome and strata
 #' @param data data.frame Input dataset containing survival data.
@@ -10,7 +10,8 @@
 #' @param conf.int numeric The level for a two-sided confidence interval on the survival probabilities. Defaults to 0.95.
 #' @param error character Specifies standard error calculation. "greenwood" for the Greenwood formula, "tsiatis" for the Tsiatis formula or "jackknife" for the jack knife method. Defaults to "greenwood".
 #' @param conf.type character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".
-#' @param use.ggsurvfit logical Draw a survival plot using ggsurvfit. Defaults to TRUE.
+#' @param report.survfit.std.err logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfitThis is  according to the original survfit. Defaults to FALSE.
+#' @param report.ggsurvfit logical Draw a survival plot using ggsurvfit. Defaults to TRUE.
 #' @param label.strata character Labels of strata. Defaults to NULL.
 #' @param label.x character Labels of x axis. Defaults to "Survival probability".
 #' @param label.y character Labels of y axis. Defaults to "Time".
@@ -20,20 +21,37 @@
 #' @param font.size numeric Specifies font size of the plot. Defaults to 14.
 #' @param legend.position character Specifies position of the legend of curves. Defaults to "top".
 #' @importFrom ggsurvfit ggsurvfit
-#' @importFrom Rcpp cppFunction
-#'
-#' @returns An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the suvrfit class.
+#' @importFrom Rcpp sourceCpp
+#' @useDynLib km.curve, .registration = TRUE
+#' @returns An object consists of Kaplan-Meier estimator and related statistics. This object is formatted to conform to the survfit class. Some methods for the class (e.g. residuals.survfit) are not supported.
 #' @export km.curve
+#' @export ci.curve
 #' @export Surv
 #' @export Event
 #' @export createTestData
 #' @export calculateKM_rcpp
 #'
 #' @examples
-#' library(ggsurvfit)
-#' library(Rcpp)
-#' testdata <- createTestData(200, 2, first_zero=TRUE, last_zero=TRUE, subset_present=FALSE, logical_strata=TRUE, na_strata=FALSE)
-#' km.curve(Surv(t, d)~strata, data=testdata)
+#' library(km.curve)
+#' library(gtsummary)
+#' library(dplyr)
+#' library(labelled)
+#' data(prostate)
+#' prostate <- prostate %>% mutate(d=ifelse(status=="alive",0,1))
+#' prostate <- prostate %>% mutate(a=ifelse(rx=="placebo","Placebo","Experimental"))
+#' prostate$t <- prostate$dtime/12
+#' attr(prostate$a, "label") <- "Treatment"
+#' survfit_by_group <- km.curve(Event(t, d)~a, data=prostate, label.x = "Years from randomization")
+#' quantile(survfit_by_group)
+#' print(survfit_by_group, rmean=6)
+#'
+#' Surv <- km.curve::Surv
+#' survfit_overall <- km.curve(Surv(t, d)~1, data=prostate, report.ggsurvfit=FALSE)
+#'
+#' survfit_list <- list(survfit_overall, survfit_by_group)
+#' table_from_survfit <- tbl_survfit(survfit_list, times = c(2, 4, 6), label_header = "**{time} years**") |>
+#'   modify_spanning_header(all_stat_cols() ~ "**Overall survival**")
+#' table_from_survfit
 km.curve <- function(formula,
                      data,
                      weights = NULL,
@@ -44,7 +62,8 @@ km.curve <- function(formula,
                      conf.int = 0.95,
                      error = "greenwood",
                      conf.type = "arcsine-square root",
-                     use.ggsurvfit = TRUE,
+                     report.survfit.std.err = FALSE,
+                     report.ggsurvfit = TRUE,
                      label.x = "Time",
                      label.y = "Survival probability",
                      label.strata = NULL,
@@ -63,15 +82,17 @@ km.curve <- function(formula,
       return(out_km)
     }
     out_km$std.err <- calculateJackKnifeSE(out_readSurv, fn)
+  } else {
+    out_km$std.err <- out_km$surv*out_km$std.err
   }
   out_ci <- calculateCI(out_km, conf.int, conf.type, conf.lower)
-  if (is.null(lims.x)) {
-    lims.x <- c(0, max(out_readSurv$t))
-  }
   if (!all(as.integer(out_readSurv$strata) == 1) & (is.null(label.strata))) {
     names(out_km$strata) <- levels(as.factor(out_readSurv$strata))
   } else if (!all(as.integer(out_readSurv$strata) == 1)) {
     names(out_km$strata) <- label.strata
+  }
+  if (report.survfit.std.err == TRUE) {
+    out_km$std.err <- out_km$std.err/out_km$surv
   }
 
   survfit_object <- list(
@@ -94,7 +115,8 @@ km.curve <- function(formula,
   }
 
   class(survfit_object) <- c("survfit")
-  if (use.ggsurvfit) {
+  if (report.ggsurvfit) {
+    if (is.null(lims.x)) lims.x <- c(0, max(out_readSurv$t))
     if (conf.type == "none" | conf.type == "n" | length(survfit_object$strata)>2) {
       survfit_object_ <- survfit_object
       survfit_object_$lower <- survfit_object_$surv
@@ -113,6 +135,8 @@ km.curve <- function(formula,
         add_risktable(risktable_stats = c("n.risk")) +
         add_censor_mark()
     } else {
+      if (length(survfit_object$time) != length(survfit_object$lower)) stop("time and upper/lower required for ggsurvfit are different lengths")
+      if (length(survfit_object$time) != length(survfit_object$n.risk)) stop("time and n.risk used required ggsurvfit are different lengths")
       out_ggsurvfit <- ggsurvfit(survfit_object) +
         theme_classic()+
         theme(legend.position = legend.position,
@@ -131,414 +155,3 @@ km.curve <- function(formula,
   }
   return(survfit_object)
 }
-
-
-cppFunction('
-Rcpp::List calculateKM_rcpp(Rcpp::NumericVector t, Rcpp::IntegerVector d,
-                                    Rcpp::NumericVector w = Rcpp::NumericVector::create(),
-                                    Rcpp::IntegerVector strata = Rcpp::IntegerVector::create(),
-                                    std::string error = "greenwood") {
-
-//  Rcpp::Rcout << "Method: " << error[0] << std::endl;
-
-  Rcpp::List survfit_list;
-
-  std::vector<double> combined_times;
-  std::vector<double> combined_surv;
-  std::vector<int> combined_n_risk;
-  std::vector<int> combined_n_event;
-  std::vector<int> combined_n_censor;
-  std::vector<double> combined_std_err;
-  std::vector<int> combined_n_stratum;
-  std::vector<int> combined_u_stratum;
-
-  if ((strata.size() == 0 || Rcpp::unique(strata).size() == 1) && (w.size() == 0 || (Rcpp::unique(w).size() == 1 && w[0] == 1))) {
-
-    Rcpp::NumericVector unique_times = Rcpp::unique(t);
-    std::sort(unique_times.begin(), unique_times.end());
-
-    int u = unique_times.size();
-    Rcpp::NumericVector km(u);
-    Rcpp::NumericVector km_i(u);
-    Rcpp::IntegerVector weighted_n_risk(u);
-    Rcpp::IntegerVector weighted_n_event(u);
-    Rcpp::IntegerVector weighted_n_censor(u);
-    Rcpp::NumericVector std_err(u);
-
-    int n_stratum = t.size();
-    int n = t.size();
-    for (int i = 0; i < u; ++i) {
-      double time = unique_times[i];
-      double weighted_n_i = 0;
-      for (int j = 0; j < n; ++j) {
-        if (t[j] >= time) {
-          weighted_n_i++;
-        }
-      }
-      weighted_n_risk[i] = weighted_n_i;
-
-      double weighted_events = 0;
-      for (int j = 0; j < n; ++j) {
-        if (t[j] == time && d[j] == 1) {
-          weighted_events++;
-        }
-      }
-
-      if (weighted_n_risk[i] > 0) {
-        km_i[i] = 1 - weighted_events / weighted_n_risk[i];
-        weighted_n_event[i] += weighted_events;
-      } else {
-        km_i[i] = 1;
-      }
-
-      if (i > 0) {
-        weighted_n_censor[i-1] = weighted_n_risk[i-1] - weighted_n_risk[i] - weighted_n_event[i-1];
-      }
-      if (i == u-1) {
-        weighted_n_censor[i] = weighted_n_risk[i] - weighted_n_event[i];
-      }
-
-      if (i == 0) {
-        km[i] = km_i[i];
-      } else {
-        km[i] = km[i - 1] * km_i[i];
-      }
-
-      double sum_se = 0;
-      for (int j = 0; j <= i; ++j) {
-        double n_i = weighted_n_risk[j];
-        double d_i = 0;
-        for (int k = 0; k < n; ++k) {
-          if (t[k] == unique_times[j] && d[k] == 1) {
-            d_i ++;
-          }
-        }
-        if (n_i > d_i) {
-          if (error == "tsiatis") {
-            sum_se += (d_i / (n_i * n_i));
-          } else if (error == "greenwood") {
-            sum_se += (d_i / (n_i * (n_i - d_i)));
-          }
-        } else {
-          sum_se = std::numeric_limits<double>::infinity();
-        }
-      }
-      std_err[i] = sqrt(sum_se);
-    }
-
-    combined_times.insert(combined_times.end(), unique_times.begin(), unique_times.end());
-    combined_surv.insert(combined_surv.end(), km.begin(), km.end());
-    combined_n_risk.insert(combined_n_risk.end(), weighted_n_risk.begin(), weighted_n_risk.end());
-    combined_n_event.insert(combined_n_event.end(), weighted_n_event.begin(), weighted_n_event.end());
-    combined_n_censor.insert(combined_n_censor.end(), weighted_n_censor.begin(), weighted_n_censor.end());
-    combined_std_err.insert(combined_std_err.end(), std_err.begin(), std_err.end());
-    combined_n_stratum.insert(combined_n_stratum.end(), n_stratum);
-
-  } else if (strata.size() == 0 || Rcpp::unique(strata).size() == 1) {
-
-    Rcpp::NumericVector unique_times = Rcpp::unique(t);
-    std::sort(unique_times.begin(), unique_times.end());
-
-    int u = unique_times.size();
-    Rcpp::NumericVector km(u);
-    Rcpp::NumericVector km_i(u);
-    Rcpp::IntegerVector weighted_n_risk(u);
-    Rcpp::IntegerVector weighted_n_event(u);
-    Rcpp::IntegerVector weighted_n_censor(u);
-    Rcpp::NumericVector std_err(u);
-
-    int n_stratum = t.size();
-    int n = t.size();
-    for (int i = 0; i < u; ++i) {
-      double time = unique_times[i];
-      double weighted_n_i = 0;
-      for (int j = 0; j < n; ++j) {
-        if (t[j] >= time) {
-          weighted_n_i += w[j];
-        }
-      }
-      weighted_n_risk[i] = weighted_n_i;
-
-      double weighted_events = 0;
-      for (int j = 0; j < n; ++j) {
-        if (t[j] == time && d[j] == 1) {
-          weighted_events += w[j];
-        }
-      }
-
-      if (weighted_n_risk[i] > 0) {
-        km_i[i] = 1 - weighted_events / weighted_n_risk[i];
-        weighted_n_event[i] += weighted_events;
-      } else {
-        km_i[i] = 1;
-      }
-
-      if (i > 0) {
-        weighted_n_censor[i-1] = weighted_n_risk[i-1] - weighted_n_risk[i] - weighted_n_event[i-1];
-      }
-      if (i == u-1) {
-        weighted_n_censor[i] = weighted_n_risk[i] - weighted_n_event[i];
-      }
-
-      if (i == 0) {
-        km[i] = km_i[i];
-      } else {
-        km[i] = km[i - 1] * km_i[i];
-      }
-
-      double sum_se = 0;
-      for (int j = 0; j <= i; ++j) {
-        double n_i = weighted_n_risk[j];
-        double d_i = 0;
-        for (int k = 0; k < n; ++k) {
-          if (t[k] == unique_times[j] && d[k] == 1) {
-            d_i += w[k];
-          }
-        }
-        if (n_i > d_i) {
-          if (error == "tsiatis") {
-            sum_se += (d_i / (n_i * n_i));
-          } else if (error == "greenwood") {
-            sum_se += (d_i / (n_i * (n_i - d_i)));
-          }
-        } else {
-          sum_se = std::numeric_limits<double>::infinity();
-        }
-      }
-      std_err[i] = sqrt(sum_se);
-    }
-
-    combined_times.insert(combined_times.end(), unique_times.begin(), unique_times.end());
-    combined_surv.insert(combined_surv.end(), km.begin(), km.end());
-    combined_n_risk.insert(combined_n_risk.end(), weighted_n_risk.begin(), weighted_n_risk.end());
-    combined_n_event.insert(combined_n_event.end(), weighted_n_event.begin(), weighted_n_event.end());
-    combined_n_censor.insert(combined_n_censor.end(), weighted_n_censor.begin(), weighted_n_censor.end());
-    combined_std_err.insert(combined_std_err.end(), std_err.begin(), std_err.end());
-    combined_n_stratum.insert(combined_n_stratum.end(), n_stratum);
-
-  } else if (w.size() == 0 || (Rcpp::unique(w).size() == 1 && w[0] == 1)) {
-
-    Rcpp::IntegerVector strata_vec = strata;
-
-    // Loop over each strata level and calculate the Kaplan-Meier estimate
-    for (int i = 0; i < Rcpp::max(strata_vec); ++i) {
-      // Select the data subset corresponding to the current strata level
-      Rcpp::LogicalVector strata_condition = (strata_vec == (i + 1));
-      Rcpp::NumericVector t_selected = t[strata_condition];
-      Rcpp::IntegerVector d_selected = d[strata_condition];
-
-      // Calculate weighted_n for this strata (sum of weights in the selected dataset)
-      int n_stratum = t_selected.size();
-      double weighted_n_stratum = 0;
-      int n_event_stratum = 0;
-      for (int j = 0; j < n_stratum; ++j) {
-        weighted_n_stratum += d_selected[j];
-        n_event_stratum += d_selected[j];
-      }
-
-      // Calculate Kaplan-Meier for the selected subset
-      Rcpp::NumericVector unique_times = Rcpp::unique(t_selected);
-      std::sort(unique_times.begin(), unique_times.end());
-      int u_stratum = unique_times.size();
-
-      Rcpp::NumericVector km(u_stratum);
-      Rcpp::NumericVector km_i(u_stratum);
-      Rcpp::IntegerVector weighted_n_risk(u_stratum);
-      Rcpp::IntegerVector weighted_n_event(u_stratum);
-      Rcpp::IntegerVector weighted_n_censor(u_stratum);
-      Rcpp::NumericVector std_err(u_stratum);
-
-      for (int j = 0; j < u_stratum; ++j) {
-        double time = unique_times[j];
-        double weighted_n_sub = 0;
-        for (int k = 0; k < t_selected.size(); ++k) {
-          if (t_selected[k] >= time) {
-            weighted_n_sub++;
-          }
-        }
-        weighted_n_risk[j] = weighted_n_sub;
-
-        double weighted_events = 0;
-        for (int k = 0; k < t_selected.size(); ++k) {
-          if (t_selected[k] == time && d_selected[k] == 1) {
-            weighted_events++;
-          }
-        }
-
-        if (weighted_n_risk[j] > 0) {
-          km_i[j] = 1 - weighted_events / weighted_n_risk[j];
-          weighted_n_event[j] += weighted_events;
-        } else {
-          km_i[j] = 1;
-        }
-
-        if (j > 0) {
-          weighted_n_censor[j-1] = weighted_n_risk[j-1] - weighted_n_risk[j] - weighted_n_event[j-1];
-        }
-        if (j == u_stratum-1) {
-          weighted_n_censor[j] = weighted_n_risk[j] - weighted_n_event[j];
-        }
-
-        km[j] = (j == 0) ? km_i[j] : km[j - 1] * km_i[j];
-
-        double sum_se = 0;
-        for (int k = 0; k <= j; ++k) {
-          double n_i = weighted_n_risk[k];
-          double d_i = 0;
-          for (int m = 0; m < t_selected.size(); ++m) {
-            if (t_selected[m] == unique_times[k] && d_selected[m] == 1) {
-              d_i += d_selected[m];
-            }
-          }
-          if (n_i > d_i) {
-            if (error == "tsiatis") {
-              sum_se += (d_i / (n_i * n_i));
-            } else if (error == "greenwood") {
-              sum_se += (d_i / (n_i * (n_i - d_i)));
-            }
-          } else {
-            sum_se = std::numeric_limits<double>::infinity();
-          }
-        }
-        std_err[j] = sqrt(sum_se);
-      }
-
-      combined_times.insert(combined_times.end(), unique_times.begin(), unique_times.end());
-      combined_surv.insert(combined_surv.end(), km.begin(), km.end());
-      combined_n_risk.insert(combined_n_risk.end(), weighted_n_risk.begin(), weighted_n_risk.end());
-      combined_n_event.insert(combined_n_event.end(), weighted_n_event.begin(), weighted_n_event.end());
-      combined_n_censor.insert(combined_n_censor.end(), weighted_n_censor.begin(), weighted_n_censor.end());
-      combined_std_err.insert(combined_std_err.end(), std_err.begin(), std_err.end());
-      combined_n_stratum.insert(combined_n_stratum.end(), n_stratum);
-      combined_u_stratum.insert(combined_u_stratum.end(), u_stratum);
-    }
-  } else {
-
-    Rcpp::IntegerVector strata_vec = strata;
-
-    // Loop over each strata level and calculate the Kaplan-Meier estimate
-    for (int i = 0; i < Rcpp::max(strata_vec); ++i) {
-      // Select the data subset corresponding to the current strata level
-      Rcpp::LogicalVector strata_condition = (strata_vec == (i + 1));  // 1-based indexing for strata
-      Rcpp::NumericVector t_selected = t[strata_condition];
-      Rcpp::IntegerVector d_selected = d[strata_condition];
-      Rcpp::NumericVector w_selected = w[strata_condition];
-
-      // Calculate weighted_n for this strata (sum of weights in the selected dataset)
-      int n_stratum = t_selected.size();
-      double weighted_n_stratum = 0;
-      int n_event_stratum = 0;
-      for (int j = 0; j < n_stratum; ++j) {
-        weighted_n_stratum += w_selected[j];
-        n_event_stratum += d_selected[j];
-      }
-
-      // Calculate Kaplan-Meier for the selected subset
-      Rcpp::NumericVector unique_times = Rcpp::unique(t_selected);
-      std::sort(unique_times.begin(), unique_times.end());
-      int u_stratum = unique_times.size();
-
-      Rcpp::NumericVector km(u_stratum);
-      Rcpp::NumericVector km_i(u_stratum);
-      Rcpp::IntegerVector weighted_n_risk(u_stratum);
-      Rcpp::IntegerVector weighted_n_event(u_stratum);
-      Rcpp::IntegerVector weighted_n_censor(u_stratum);
-      Rcpp::NumericVector std_err(u_stratum);
-
-      for (int j = 0; j < u_stratum; ++j) {
-        double time = unique_times[j];
-
-        double weighted_n_sub = 0;
-        for (int k = 0; k < t_selected.size(); ++k) {
-          if (t_selected[k] >= time) {
-            weighted_n_sub += w_selected[k];
-          }
-        }
-        weighted_n_risk[j] = weighted_n_sub;
-
-        double weighted_events = 0;
-        for (int k = 0; k < t_selected.size(); ++k) {
-          if (t_selected[k] == time && d_selected[k] == 1) {
-            weighted_events += w_selected[k];
-          }
-        }
-
-        if (weighted_n_risk[j] > 0) {
-          km_i[j] = 1 - weighted_events / weighted_n_risk[j];
-          weighted_n_event[j] += weighted_events;
-        } else {
-          km_i[j] = 1;
-        }
-
-        if (j > 0) {
-          weighted_n_censor[j-1] = weighted_n_risk[j-1]-weighted_n_risk[j] - weighted_n_event[j-1];
-        }
-        if (j == u_stratum-1) {
-          weighted_n_censor[j] = weighted_n_risk[j] - weighted_n_event[j];
-        }
-
-        km[j] = (j == 0) ? km_i[j] : km[j - 1] * km_i[j];
-
-        double sum_se = 0;
-        for (int k = 0; k <= j; ++k) {
-          double n_i = weighted_n_risk[k];
-          double d_i = 0;
-          for (int m = 0; m < t_selected.size(); ++m) {
-            if (t_selected[m] == unique_times[k] && d_selected[m] == 1) {
-              d_i += w_selected[m];
-            }
-          }
-          if (n_i > d_i) {
-            if (error == "tsiatis") {
-              sum_se += (d_i / (n_i * n_i));
-            } else if (error == "greenwood") {
-              sum_se += (d_i / (n_i * (n_i - d_i)));
-            }
-          } else {
-            sum_se = std::numeric_limits<double>::infinity();
-          }
-        }
-        std_err[j] = sqrt(sum_se);
-      }
-
-      combined_times.insert(combined_times.end(), unique_times.begin(), unique_times.end());
-      combined_surv.insert(combined_surv.end(), km.begin(), km.end());
-      combined_n_risk.insert(combined_n_risk.end(), weighted_n_risk.begin(), weighted_n_risk.end());
-      combined_n_event.insert(combined_n_event.end(), weighted_n_event.begin(), weighted_n_event.end());
-      combined_n_censor.insert(combined_n_censor.end(), weighted_n_censor.begin(), weighted_n_censor.end());
-      combined_std_err.insert(combined_std_err.end(), std_err.begin(), std_err.end());
-      combined_n_stratum.insert(combined_n_stratum.end(), n_stratum);
-      combined_u_stratum.insert(combined_u_stratum.end(), u_stratum);
-    }
-  }
-
-  Rcpp::NumericVector all_times = Rcpp::wrap(combined_times);
-  Rcpp::NumericVector all_surv = Rcpp::wrap(combined_surv);
-  Rcpp::IntegerVector all_n_risk = Rcpp::wrap(combined_n_risk);
-  Rcpp::IntegerVector all_n_event = Rcpp::wrap(combined_n_event);
-  Rcpp::IntegerVector all_n_censor = Rcpp::wrap(combined_n_censor);
-  Rcpp::NumericVector all_std_err = Rcpp::wrap(combined_std_err);
-  Rcpp::IntegerVector all_n_stratum = Rcpp::wrap(combined_n_stratum);
-  Rcpp::IntegerVector all_u_stratum = Rcpp::wrap(combined_u_stratum);
-
-  // Create final combined output for all strata
-  survfit_list = Rcpp::List::create(
-    Rcpp::_["time"] = all_times,
-    Rcpp::_["surv"] = all_surv,
-    Rcpp::_["n.risk"] = all_n_risk,
-    Rcpp::_["n"] = combined_n_stratum,
-    Rcpp::_["n.event"] = all_n_event,
-    Rcpp::_["n.censor"] = all_n_censor,
-    Rcpp::_["unweighted.n"] = all_n_stratum,
-    Rcpp::_["std.err"] = all_std_err,
-    Rcpp::_["high"] = R_NilValue,
-    Rcpp::_["low"] = R_NilValue,
-    Rcpp::_["conf.type"] = "log-log",
-    Rcpp::_["strata"] = all_u_stratum,
-    Rcpp::_["type"] = "kaplan-meier",
-    Rcpp::_["method"] = "Kaplan-Meier"
-  );
-  return survfit_list;
-}
-')
-

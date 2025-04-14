@@ -5,7 +5,6 @@ checkDependentPackages <- function() {
   } else {
     stop("Required packages 'ggsurvfit' and/or 'Rcpp' are not installed.")
   }
-#  sourceCpp('src/km.curve.cpp')
 }
 
 Surv <- function(time, event) {
@@ -131,6 +130,8 @@ readSurv <- function(formula, data, weights, code.event, code.censoring, subset.
       epsilon <- Y[, 2]
       d <- ifelse(Y[, 2] == code.censoring, 0, 1)
       d0 <- ifelse(Y[, 2] == code.censoring, 1, 0)
+      d1 <- ifelse(Y[, 2] == code.event[1], 1, 0)
+      d2 <- ifelse(Y[, 2] == code.event[2], 1, 0)
     }
   }
   if (is.na(all.vars(out_terms)[3])) {
@@ -153,7 +154,7 @@ readSurv <- function(formula, data, weights, code.event, code.censoring, subset.
     if (any(is.na(w)))
       stop("Weights contain NA values")
   }
-  return(list(t = t, epsilon = epsilon, d = d, d0 = d0, strata = strata, strata_name = strata_name, w=w))
+  return(list(t = t, epsilon = epsilon, d = d, d0 = d0, d1 = d1, d2 = d2, strata = strata, strata_name = strata_name, w=w))
 }
 
 createAnalysisDataset <- function(formula, data, other.variables.analyzed=NULL, subset.condition=NULL, na.action=na.pass) {
