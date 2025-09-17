@@ -257,3 +257,13 @@ get_surv <- function(predicted.time, estimated.surv, estimated.time, predicted.s
   }
   return(predicted.surv)
 }
+
+calculateRMST <- function(out_survfit, tau){
+  time <- out_survfit$time
+  surv <- out_survfit$surv
+  idx <- which(time <= tau)
+  dt <- diff(c(0, time[idx], tau))
+  surv_sub <- c(surv[idx], surv[max(idx)])
+  rmst <- sum(surv_sub * dt)
+  return(rmst)
+}

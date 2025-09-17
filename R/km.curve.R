@@ -10,7 +10,7 @@
 #' @param conf.int numeric The level for a two-sided confidence interval on the survival probabilities. Defaults to 0.95.
 #' @param error character Specifies standard error calculation. "greenwood" for the Greenwood formula, "tsiatis" for the Tsiatis formula or "jackknife" for the jack knife method. Defaults to "greenwood".
 #' @param conf.type character Specifies transformation used to construct the confidence interval on the probabilities. Defaults to "arcsine-square root".
-#' @param report.survfit.std.err logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfitThis is  according to the original survfit. Defaults to FALSE.
+#' @param report.survfit.std.err logical Report standard error of log of survival probabilities. If this is not specified, the SE of survival probabilities is stored in std.err, unlike the original survfit. Defaults to FALSE.
 #' @param report.ggsurvfit logical Draw a survival plot using ggsurvfit. Defaults to TRUE.
 #' @param label.strata character Labels of strata. Defaults to NULL.
 #' @param label.x character Labels of x axis. Defaults to "Survival probability".

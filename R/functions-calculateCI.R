@@ -1,4 +1,4 @@
-calculateCI <- function(survfit_object, conf.int, conf.type, conf.lower) {
+calculateCI <- function(survfit_object, conf.int, conf.type) {
   if (conf.int <= 0 | conf.int >= 1)
     stop("Confidence level must be between 0 and 1")
   alpha <- 1 - conf.int
@@ -41,7 +41,7 @@ se <- survfit_object$std.err/survfit_object$surv/log(survfit_object$surv)
   return(list(upper=upper, lower=lower))
 }
 
-calculateCI_old <- function(survfit_object, conf.int, conf.type, conf.lower) {
+calculateCI_old <- function(survfit_object, conf.int, conf.type) {
   if (conf.int <= 0 | conf.int >= 1)
     stop("Confidence level must be between 0 and 1")
   alpha <- 1 - conf.int
