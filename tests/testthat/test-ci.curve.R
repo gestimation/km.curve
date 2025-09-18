@@ -61,7 +61,7 @@ test_that("ci.curve by strata yields the same outputs as subsetting", {
 })
 
 
-test_that("coxphyields the same outputs as cifreg of mets for Fine-Gray model", {
+test_that("coxph yields the same outputs as cifreg of mets for Fine-Gray model", {
   library(survival)
   library(mets)
   Surv <- survival:::Surv

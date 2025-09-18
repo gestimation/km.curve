@@ -85,7 +85,7 @@ km.curve <- function(formula,
   } else {
     out_km$std.err <- out_km$surv*out_km$std.err
   }
-  out_ci <- calculateCI(out_km, conf.int, conf.type, conf.lower)
+  out_ci <- calculateCI(out_km, conf.int, conf.type)
   if (!all(as.integer(out_readSurv$strata) == 1) & (is.null(label.strata))) {
     names(out_km$strata) <- levels(as.factor(out_readSurv$strata))
   } else if (!all(as.integer(out_readSurv$strata) == 1)) {
